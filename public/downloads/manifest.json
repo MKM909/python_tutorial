@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-06-03T23:36:30.924Z",
+  "groups": [
+    {
+      "id": 1,
+      "title": "Savings Goals",
+      "markdown": "group-1-feature-pack.md",
+      "pdf": "group-1-feature-pack.pdf",
+      "starterZip": "group-1-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 2,
+      "title": "Category Limits",
+      "markdown": "group-2-feature-pack.md",
+      "pdf": "group-2-feature-pack.pdf",
+      "starterZip": "group-2-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 3,
+      "title": "Time Summaries",
+      "markdown": "group-3-feature-pack.md",
+      "pdf": "group-3-feature-pack.pdf",
+      "starterZip": "group-3-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 4,
+      "title": "Search And Filter",
+      "markdown": "group-4-feature-pack.md",
+      "pdf": "group-4-feature-pack.pdf",
+      "starterZip": "group-4-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 5,
+      "title": "Receipt Notes",
+      "markdown": "group-5-feature-pack.md",
+      "pdf": "group-5-feature-pack.pdf",
+      "starterZip": "group-5-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 6,
+      "title": "Income Planner",
+      "markdown": "group-6-feature-pack.md",
+      "pdf": "group-6-feature-pack.pdf",
+      "starterZip": "group-6-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 7,
+      "title": "Debt Tracker",
+      "markdown": "group-7-feature-pack.md",
+      "pdf": "group-7-feature-pack.pdf",
+      "starterZip": "group-7-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 8,
+      "title": "Needs Wants Savings",
+      "markdown": "group-8-feature-pack.md",
+      "pdf": "group-8-feature-pack.pdf",
+      "starterZip": "group-8-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 9,
+      "title": "Spending Lock",
+      "markdown": "group-9-feature-pack.md",
+      "pdf": "group-9-feature-pack.pdf",
+      "starterZip": "group-9-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 10,
+      "title": "CSV Backup",
+      "markdown": "group-10-feature-pack.md",
+      "pdf": "group-10-feature-pack.pdf",
+      "starterZip": "group-10-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 11,
+      "title": "Monthly Report",
+      "markdown": "group-11-feature-pack.md",
+      "pdf": "group-11-feature-pack.pdf",
+      "starterZip": "group-11-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 12,
+      "title": "Smart Alerts",
+      "markdown": "group-12-feature-pack.md",
+      "pdf": "group-12-feature-pack.pdf",
+      "starterZip": "group-12-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 13,
+      "title": "Group Ledger",
+      "markdown": "group-13-feature-pack.md",
+      "pdf": "group-13-feature-pack.pdf",
+      "starterZip": "group-13-budget-tracker-starter-kit.zip"
+    },
+    {
+      "id": 14,
+      "title": "Mini Analytics",
+      "markdown": "group-14-feature-pack.md",
+      "pdf": "group-14-feature-pack.pdf",
+      "starterZip": "group-14-budget-tracker-starter-kit.zip"
+    }
+  ]
+}

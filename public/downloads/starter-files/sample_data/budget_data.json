@@ -1,0 +1,11 @@
+{
+  "income": [
+    { "source": "Allowance", "amount": 15000 },
+    { "source": "Small business", "amount": 8000 }
+  ],
+  "expenses": [
+    { "category": "Food", "description": "Lunch and snacks", "amount": 2500 },
+    { "category": "Transport", "description": "Campus shuttle", "amount": 1200 },
+    { "category": "Data", "description": "Internet bundle", "amount": 3000 }
+  ]
+}

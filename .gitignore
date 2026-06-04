@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env.local
+.env.*.local
+.firebase/
+.vercel/
+.superpowers/
+tmp/
+test-artifacts/
+
+*.log
+qa-*.png
+*-qa.png
+
+node_modules/.tmp/

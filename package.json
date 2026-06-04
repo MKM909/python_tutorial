@@ -1,0 +1,38 @@
+{
+  "name": "budget-tracker-quest-portal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate:materials": "node scripts/generate-materials.mjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "4.3.4",
+    "firebase": "10.14.1",
+    "jspdf": "2.5.2",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.562.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "15.0.7",
+    "@types/node": "20.17.10",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "autoprefixer": "^10.4.22",
+    "jsdom": "24.1.3",
+    "playwright": "1.49.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.18",
+    "typescript": "5.6.3",
+    "vite": "5.4.11",
+    "vitest": "2.1.8"
+  }
+}
