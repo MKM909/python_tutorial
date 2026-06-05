@@ -13,3 +13,5 @@ qa-*.png
 *-qa.png
 
 node_modules/.tmp/
+
+.vercel

@@ -34,10 +34,16 @@ describe('Budget Tracker Quest portal', () => {
     fireEvent.click(screen.getByRole('button', { name: /close registration dialog/i }));
   }
 
-  function completeSetupStepper() {
+  function closeCompletionDialogIfOpen() {
+    const closeButton = screen.queryByRole('button', { name: /close completion celebration/i });
+    if (closeButton) fireEvent.click(closeButton);
+  }
+
+  function completeSetupStepper(options: { keepDialog?: boolean } = {}) {
     for (let index = 0; index < 5; index += 1) {
       fireEvent.click(screen.getByRole('button', { name: /i did this/i }));
     }
+    if (!options.keepDialog) closeCompletionDialogIfOpen();
   }
 
   function completeLearnStepper() {
@@ -69,6 +75,7 @@ describe('Budget Tracker Quest portal', () => {
       fireEvent.click(screen.getByRole('button', { name: /check answer/i }));
       fireEvent.click(screen.getByRole('button', { name: /i understand this/i }));
     }
+    closeCompletionDialogIfOpen();
   }
 
   function finishCurrentRebuildStep() {
@@ -84,6 +91,7 @@ describe('Budget Tracker Quest portal', () => {
     for (let index = 0; index < REBUILD_STEP_IDS.length; index += 1) {
       finishCurrentRebuildStep();
     }
+    closeCompletionDialogIfOpen();
   }
 
   function completeUnderstandStepper() {
@@ -113,6 +121,7 @@ describe('Budget Tracker Quest portal', () => {
       fireEvent.click(screen.getByRole('button', { name: /check answer/i }));
       fireEvent.click(screen.getByRole('button', { name: /i get this part/i }));
     }
+    closeCompletionDialogIfOpen();
   }
 
   function seedProgress(
@@ -409,9 +418,11 @@ describe('Budget Tracker Quest portal', () => {
 
     joinQuest();
     fireEvent.click(screen.getByRole('link', { name: /setup/i }));
-    completeSetupStepper();
+    completeSetupStepper({ keepDialog: true });
 
-    expect(await screen.findByText(/setup complete/i)).toBeInTheDocument();
+    const celebrationDialog = await screen.findByRole('dialog', { name: /setup complete/i });
+    expect(celebrationDialog).toBeInTheDocument();
+    fireEvent.click(within(celebrationDialog).getByRole('button', { name: /continue/i }));
     fireEvent.click(screen.getByRole('link', { name: /overview/i }));
     expect(screen.getByText(/install tools/i).closest('.roadmap-card')).toHaveClass('complete');
   });
@@ -773,8 +784,10 @@ describe('Budget Tracker Quest portal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /mark presentation pack complete/i }));
 
-    expect(await screen.findByRole('heading', { name: /presentation pack complete/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retake presentation pack/i })).toBeInTheDocument();
+    const celebrationDialog = await screen.findByRole('dialog', { name: /presentation pack complete/i });
+    expect(celebrationDialog).toBeInTheDocument();
+    expect(within(celebrationDialog).getByRole('button', { name: /retake presentation pack/i })).toBeInTheDocument();
+    fireEvent.click(within(celebrationDialog).getByRole('button', { name: /continue/i }));
 
     fireEvent.click(screen.getByRole('button', { name: /retake learn the basics/i }));
 
@@ -783,5 +796,31 @@ describe('Budget Tracker Quest portal', () => {
       'aria-current',
       'step',
     );
+  });
+
+  it('shows a celebratory dialog when a course section is completed', async () => {
+    render(<App />);
+
+    joinQuest('Ada Student', '4');
+    fireEvent.click(screen.getByRole('link', { name: /setup/i }));
+    completeSetupStepper({ keepDialog: true });
+
+    const celebrationDialog = await screen.findByRole('dialog', { name: /setup complete/i });
+    expect(celebrationDialog).toBeInTheDocument();
+    expect(within(celebrationDialog).getByRole('button', { name: /retake setup/i })).toBeInTheDocument();
+  });
+
+  it('keeps the presentation tab locked until group mission is complete', async () => {
+    seedProgress({
+      completedSteps: ['join', 'setup', 'learn-basics', 'rebuild-app', 'understand-app'],
+    });
+    window.history.pushState({}, '', '/presentation');
+    render(<App />);
+
+    const lockedHeading = await screen.findByRole('heading', { name: /presentation is not open yet/i });
+    expect(lockedHeading).toBeInTheDocument();
+    const lockedPanel = lockedHeading.closest('.locked-quest-page') as HTMLElement;
+    expect(within(lockedPanel).getByText(/Finish Group Mission first/i)).toBeInTheDocument();
+    expect(screen.queryByText(/presentation rehearsal room/i)).not.toBeInTheDocument();
   });
 });

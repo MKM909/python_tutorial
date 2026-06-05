@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createProgressRecord } from './progress';
-import { createLocalProgressRepository } from './progressRepository';
+import { SETUP_STEP_IDS, createProgressRecord, markSetupStepComplete } from './progress';
+import {
+  createLocalProgressRepository,
+  createMirroredProgressRepository,
+  type ProgressRepository,
+} from './progressRepository';
 
 describe('progress repository', () => {
   beforeEach(() => {
@@ -65,5 +69,76 @@ describe('progress repository', () => {
     await repository.markNotificationsRead(recipient);
 
     expect(await repository.listNotifications(recipient)).toHaveLength(0);
+  });
+
+  it('mirrors remote saves locally so refresh can recover if Firestore is unavailable', async () => {
+    const fallbackStorage = localStorage;
+    const fallback = createLocalProgressRepository(fallbackStorage);
+    const failingPrimary: ProgressRepository = {
+      save: async () => {
+        throw new Error('offline');
+      },
+      getByCode: async () => {
+        throw new Error('offline');
+      },
+      listGroupMembers: async () => {
+        throw new Error('offline');
+      },
+      listNotifications: async () => {
+        throw new Error('offline');
+      },
+      markNotificationsRead: async () => {
+        throw new Error('offline');
+      },
+      nudgeGroupMember: async () => {
+        throw new Error('offline');
+      },
+    };
+    const repository = createMirroredProgressRepository(failingPrimary, fallback);
+    const record = createProgressRecord({
+      name: 'Refresh Student',
+      groupId: 3,
+      uid: 'anon-local',
+      now: '2026-06-03T12:00:00.000Z',
+      randomNumber: () => 3333,
+    });
+
+    await repository.save(record);
+
+    const recovered = await repository.getByCode('G3-3333');
+    expect(recovered?.name).toBe('Refresh Student');
+    expect(recovered?.progressCode).toBe('G3-3333');
+  });
+
+  it('keeps the local record when Firestore returns an older progress snapshot', async () => {
+    const fallback = createLocalProgressRepository(localStorage);
+    const remoteRecord = createProgressRecord({
+      name: 'Stale Remote',
+      groupId: 4,
+      uid: 'remote',
+      now: '2026-06-03T12:00:00.000Z',
+      randomNumber: () => 4444,
+    });
+    const localRecord = SETUP_STEP_IDS.reduce((record, step) => markSetupStepComplete(record, step), remoteRecord);
+    const savedToPrimary: Array<typeof localRecord> = [];
+    const primary: ProgressRepository = {
+      save: async (record) => {
+        savedToPrimary.push(record);
+        return record;
+      },
+      getByCode: async () => remoteRecord,
+      listGroupMembers: async () => [],
+      listNotifications: async () => [],
+      markNotificationsRead: async () => undefined,
+      nudgeGroupMember: async () => undefined,
+    };
+    await fallback.save(localRecord);
+
+    const repository = createMirroredProgressRepository(primary, fallback);
+    const recovered = await repository.getByCode('G4-4444');
+
+    expect(recovered?.completedSteps).toContain('setup');
+    expect(recovered?.setupCompletedSteps).toHaveLength(5);
+    expect(savedToPrimary.at(-1)?.completedSteps).toContain('setup');
   });
 });

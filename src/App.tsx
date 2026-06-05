@@ -54,6 +54,7 @@ import { createFirebaseRuntime, createFirestoreProgressRepository, hasFirebaseCo
 import {
   type GroupMemberProgress,
   type GroupNotification,
+  createMirroredProgressRepository,
   createLocalProgressRepository,
   normalizeProgressCode,
 } from './lib/progressRepository';
@@ -100,7 +101,6 @@ const pageByLevelId: Partial<Record<QuestLevelId, QuestPageId>> = {
 };
 
 const groupMissionRequiredSteps: QuestLevelId[] = ['join', 'setup', 'learn-basics', 'rebuild-app', 'understand-app'];
-const DEV_UNLOCK_PRESENTATION_FOR_TESTING = true;
 
 type GroupMissionAccess = {
   allGroupReady: boolean;
@@ -160,7 +160,7 @@ function buildPageLocks(progress: ProgressRecord, groupMissionAccess: GroupMissi
   if (!groupMissionAccess.canOpen) {
     locks['group-mission'] = 'Everyone in your group must finish the earlier levels first.';
   }
-  if (!DEV_UNLOCK_PRESENTATION_FOR_TESTING && !progress.completedSteps.includes('group-mission')) {
+  if (!progress.completedSteps.includes('group-mission')) {
     locks.presentation = 'Finish Group Mission first.';
   }
 
@@ -2043,6 +2043,25 @@ async function storeProgressCodeCredential(progress: ProgressRecord) {
   }
 }
 
+type SmallWinNotice = {
+  id: number;
+  body: string;
+  title: string;
+};
+
+function levelCelebrationTitle(levelId: QuestLevelId): string {
+  const titles: Record<QuestLevelId, string> = {
+    join: 'Join The Quest',
+    setup: 'Setup',
+    'learn-basics': 'Learn Basics',
+    'rebuild-app': 'Rebuild App',
+    'understand-app': 'Understand App',
+    'group-mission': 'Group Mission',
+    'presentation-pack': 'Presentation Pack',
+  };
+  return titles[levelId];
+}
+
 function App() {
   const [studentName, setStudentName] = useState('');
   const [selectedGroup, setSelectedGroup] = useState(1);
@@ -2064,12 +2083,24 @@ function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [showNudgePopup, setShowNudgePopup] = useState(false);
   const [notificationError, setNotificationError] = useState('');
+  const [completionLevelId, setCompletionLevelId] = useState<QuestLevelId | null>(null);
+  const [smallWin, setSmallWin] = useState<SmallWinNotice | null>(null);
+  const smallWinTimerRef = useRef<number | null>(null);
 
   const repository = useMemo(() => {
+    const localRepository = createLocalProgressRepository();
     if (hasFirebaseConfig()) {
-      return createFirestoreProgressRepository(createFirebaseRuntime());
+      return createMirroredProgressRepository(createFirestoreProgressRepository(createFirebaseRuntime()), localRepository);
     }
-    return createLocalProgressRepository();
+    return localRepository;
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (smallWinTimerRef.current !== null) {
+        window.clearTimeout(smallWinTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -2143,6 +2174,35 @@ function App() {
         linkedUids: savedRecord.linkedUids,
       };
     });
+  }
+
+  function showSmallWin(title: string, body: string) {
+    if (smallWinTimerRef.current !== null) {
+      window.clearTimeout(smallWinTimerRef.current);
+    }
+    setSmallWin({ id: Date.now(), title, body });
+    smallWinTimerRef.current = window.setTimeout(() => {
+      setSmallWin(null);
+      smallWinTimerRef.current = null;
+    }, 2400);
+  }
+
+  function announceProgressChange(
+    previousRecord: ProgressRecord,
+    nextRecord: ProgressRecord,
+    levelId: QuestLevelId,
+    smallWinBody: string,
+  ) {
+    const levelCompletedNow =
+      !previousRecord.completedSteps.includes(levelId) && nextRecord.completedSteps.includes(levelId);
+
+    if (levelCompletedNow && levelId !== 'join') {
+      setSmallWin(null);
+      setCompletionLevelId(levelId);
+      return;
+    }
+
+    showSmallWin('Checkpoint saved', smallWinBody);
   }
 
   useEffect(() => {
@@ -2291,6 +2351,7 @@ function App() {
   function completeLevel(level: QuestLevel) {
     if (!progress) return;
 
+    const alreadyComplete = progress.completedSteps.includes(level.id);
     const withCheckpoint =
       level.id === 'understand-app'
         ? {
@@ -2301,16 +2362,22 @@ function App() {
 
     const nextRecord = markStepComplete(withCheckpoint, level.id);
     setProgress(nextRecord);
+    if (!alreadyComplete && nextRecord.completedSteps.includes(level.id) && level.id !== 'join') {
+      setSmallWin(null);
+      setCompletionLevelId(level.id);
+    }
     void repository.save(nextRecord).then(syncSavedIdentity);
   }
 
   function retakeLevel(level: QuestLevel) {
     if (!progress || level.id === 'join') return;
 
+    setCompletionLevelId(null);
     const nextRecord = resetCourseSection(progress, level.id);
     saveProgressRecord(nextRecord);
     const pageId = pageByLevelId[level.id];
     if (pageId) navigateTo(pageId);
+    showSmallWin('Retake ready', `${levelCelebrationTitle(level.id)} has been reset for practice.`);
   }
 
   function saveProgressRecord(nextRecord: ProgressRecord) {
@@ -2328,7 +2395,9 @@ function App() {
   function completeSetupSubstep(stepId: SetupStepId) {
     if (!progress) return;
 
-    saveProgressRecord(markSetupStepComplete(progress, stepId));
+    const nextRecord = markSetupStepComplete(progress, stepId);
+    announceProgressChange(progress, nextRecord, 'setup', 'Nice, one setup action is saved. Keep moving one tiny step.');
+    saveProgressRecord(nextRecord);
   }
 
   function moveLearnStepper(stepIndex: number) {
@@ -2340,7 +2409,14 @@ function App() {
   function completeLearnSubstep(stepId: LearnStepId) {
     if (!progress) return;
 
-    saveProgressRecord(markLearnStepComplete(progress, stepId));
+    const nextRecord = markLearnStepComplete(progress, stepId);
+    announceProgressChange(
+      progress,
+      nextRecord,
+      'learn-basics',
+      'Good, that Python idea is saved. The next piece will build on it.',
+    );
+    saveProgressRecord(nextRecord);
   }
 
   function moveRebuildStepper(stepIndex: number) {
@@ -2352,7 +2428,14 @@ function App() {
   function completeRebuildSubstep(stepId: RebuildStepId) {
     if (!progress) return;
 
-    saveProgressRecord(markRebuildStepComplete(progress, stepId));
+    const nextRecord = markRebuildStepComplete(progress, stepId);
+    announceProgressChange(
+      progress,
+      nextRecord,
+      'rebuild-app',
+      'Good work, another rebuild checkpoint is saved.',
+    );
+    saveProgressRecord(nextRecord);
   }
 
   function moveUnderstandStepper(stepIndex: number) {
@@ -2364,7 +2447,14 @@ function App() {
   function completeUnderstandSubstep(stepId: UnderstandStepId) {
     if (!progress) return;
 
-    saveProgressRecord(markUnderstandStepComplete(progress, stepId));
+    const nextRecord = markUnderstandStepComplete(progress, stepId);
+    announceProgressChange(
+      progress,
+      nextRecord,
+      'understand-app',
+      'Nice, another project explanation checkpoint is saved.',
+    );
+    saveProgressRecord(nextRecord);
   }
 
   function exportReceipt() {
@@ -2462,6 +2552,14 @@ function App() {
             setShowNudgePopup(false);
             setNotificationsOpen(true);
           }}
+        />
+      )}
+      {smallWin && <SmallWinToast notice={smallWin} />}
+      {completionLevelId && (
+        <CompletionCelebrationDialog
+          level={levelById(completionLevelId)}
+          onClose={() => setCompletionLevelId(null)}
+          onRetake={(level) => retakeLevel(level)}
         />
       )}
       <div className="quest-body">
@@ -2944,6 +3042,66 @@ function PendingNudgePopup(props: {
         Open notifications
       </button>
     </section>
+  );
+}
+
+function SmallWinToast({ notice }: { notice: SmallWinNotice }) {
+  return (
+    <section aria-live="polite" className="small-win-toast" role="status">
+      <div className="small-win-icon">
+        <BadgeCheck aria-hidden="true" />
+      </div>
+      <div>
+        <strong>{notice.title}</strong>
+        <p>{notice.body}</p>
+      </div>
+    </section>
+  );
+}
+
+function CompletionCelebrationDialog(props: {
+  level: QuestLevel;
+  onClose: () => void;
+  onRetake: (level: QuestLevel) => void;
+}) {
+  const title = `${levelCelebrationTitle(props.level.id)} complete`;
+
+  return (
+    <div className="modal-backdrop celebration-backdrop">
+      <section
+        aria-labelledby="completion-celebration-title"
+        aria-modal="true"
+        className="completion-dialog"
+        role="dialog"
+      >
+        <button aria-label="Close completion celebration" className="dialog-close" type="button" onClick={props.onClose}>
+          <X aria-hidden="true" />
+        </button>
+        <div className="completion-dialog-icon">
+          <BadgeCheck aria-hidden="true" />
+        </div>
+        <p className="eyebrow">Small win saved</p>
+        <h2 id="completion-celebration-title">{title}</h2>
+        <p className="muted-copy">
+          Nice work. This section is saved to your progress code, and your group can see that you moved forward.
+        </p>
+        <div className="completion-dialog-actions">
+          <button className="mini-button primary" type="button" onClick={props.onClose}>
+            Continue
+          </button>
+          <button
+            aria-label={`Retake ${levelCelebrationTitle(props.level.id)}`}
+            className="mini-button ghost"
+            title={`Retake ${levelCelebrationTitle(props.level.id)}`}
+            type="button"
+            onClick={() => props.onRetake(props.level)}
+          >
+            <RotateCcw aria-hidden="true" />
+            Retake
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 

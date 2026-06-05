@@ -42,6 +42,10 @@ export type ProgressRepository = {
   nudgeGroupMember(groupId: number, memberId: string, sender?: ProgressRecord): Promise<void>;
 };
 
+type MirroredRepositoryOptions = {
+  onError?: (error: unknown) => void;
+};
+
 export function normalizeProgressCode(code: string): string {
   return code.trim().toUpperCase();
 }
@@ -69,6 +73,34 @@ function writeStoredNotifications(
   notifications: GroupNotification[],
 ) {
   storage.setItem(notificationStorageKey(groupId, memberId), JSON.stringify(notifications));
+}
+
+function progressDepth(record: ProgressRecord): number {
+  const normalized = normalizeProgressRecord(record);
+  return (
+    normalized.completedSteps.length * 1000 +
+    normalized.setupCompletedSteps.length * 100 +
+    normalized.learnCompletedSteps.length * 10 +
+    normalized.rebuildCompletedSteps.length * 10 +
+    normalized.understandCompletedSteps.length * 10
+  );
+}
+
+function chooseNewestUsefulRecord(
+  primaryRecord: ProgressRecord | null,
+  fallbackRecord: ProgressRecord | null,
+): ProgressRecord | null {
+  if (!primaryRecord) return fallbackRecord;
+  if (!fallbackRecord) return primaryRecord;
+
+  const primaryDepth = progressDepth(primaryRecord);
+  const fallbackDepth = progressDepth(fallbackRecord);
+  if (fallbackDepth > primaryDepth) return fallbackRecord;
+  if (primaryDepth > fallbackDepth) return primaryRecord;
+
+  const primaryTime = Date.parse(primaryRecord.updatedAt);
+  const fallbackTime = Date.parse(fallbackRecord.updatedAt);
+  return fallbackTime > primaryTime ? fallbackRecord : primaryRecord;
 }
 
 export function toGroupMemberProgress(
@@ -169,6 +201,87 @@ export function createLocalProgressRepository(storage: Storage = window.localSto
         },
         ...notifications,
       ]);
+    },
+  };
+}
+
+export function createMirroredProgressRepository(
+  primary: ProgressRepository,
+  fallback: ProgressRepository,
+  options: MirroredRepositoryOptions = {},
+): ProgressRepository {
+  const report = (error: unknown) => options.onError?.(error);
+
+  return {
+    async save(record) {
+      const fallbackRecord = await fallback.save(record);
+      try {
+        const primaryRecord = await primary.save(record);
+        await fallback.save(primaryRecord);
+        return primaryRecord;
+      } catch (error) {
+        report(error);
+        return fallbackRecord;
+      }
+    },
+    async getByCode(progressCode) {
+      const fallbackRecord = await fallback.getByCode(progressCode);
+      let primaryRecord: ProgressRecord | null = null;
+
+      try {
+        primaryRecord = await primary.getByCode(progressCode);
+      } catch (error) {
+        report(error);
+      }
+
+      const preferredRecord = chooseNewestUsefulRecord(primaryRecord, fallbackRecord);
+      if (!preferredRecord) return null;
+
+      await fallback.save(preferredRecord);
+
+      if (fallbackRecord && preferredRecord === fallbackRecord) {
+        try {
+          const savedPrimaryRecord = await primary.save(fallbackRecord);
+          await fallback.save(savedPrimaryRecord);
+          return savedPrimaryRecord;
+        } catch (error) {
+          report(error);
+        }
+      }
+
+      return preferredRecord;
+    },
+    async listGroupMembers(groupId) {
+      try {
+        return await primary.listGroupMembers(groupId);
+      } catch (error) {
+        report(error);
+        return fallback.listGroupMembers(groupId);
+      }
+    },
+    async listNotifications(record) {
+      try {
+        return await primary.listNotifications(record);
+      } catch (error) {
+        report(error);
+        return fallback.listNotifications(record);
+      }
+    },
+    async markNotificationsRead(record) {
+      await fallback.markNotificationsRead(record);
+      try {
+        await primary.markNotificationsRead(record);
+      } catch (error) {
+        report(error);
+      }
+    },
+    async nudgeGroupMember(groupId, memberId, sender) {
+      await fallback.nudgeGroupMember(groupId, memberId, sender);
+      try {
+        await primary.nudgeGroupMember(groupId, memberId, sender);
+      } catch (error) {
+        report(error);
+      }
     },
   };
 }
