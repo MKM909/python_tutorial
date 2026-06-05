@@ -4925,8 +4925,10 @@ select:focus {
   }
 
   .setup-current-copy > .setup-actions .setup-action {
-    width: auto;
-    max-width: 220px;
+    flex: 0 0 auto;
+    width: fit-content;
+    max-width: min(220px, 100%);
+    height: auto;
     min-height: 36px;
     align-self: flex-start;
     padding: 7px 10px;
